@@ -1,7 +1,9 @@
 fastapi
 uvicorn
+joblib
 pandas
 scikit-learn
-xgboost
-joblib
+tldextract
 pydantic
+requests
+numpy
