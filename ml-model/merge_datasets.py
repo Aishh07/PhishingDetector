@@ -6,8 +6,18 @@ safe_df = pd.read_csv("dataset/safe_urls_final.csv")
 phish_df = pd.read_csv("dataset/phishing_urls_merged.csv")
 
 # Balance dataset
+min_size = min(
+    len(safe_df),
+    len(phish_df)
+)
+
 safe_df = safe_df.sample(
-    n=len(phish_df),
+    n=min_size,
+    random_state=42
+)
+
+phish_df = phish_df.sample(
+    n=min_size,
     random_state=42
 )
 

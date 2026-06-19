@@ -1,113 +1,43 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import joblib, pandas as pd
+import sys, os
 
-import joblib
-import pandas as pd
-
-from urllib.parse import urlparse
-import re
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ml-model"))
+from create_features_dataset import extract_features
 
 app = FastAPI()
 
-# Load model once
-model = joblib.load("ml-model/phishing_url_model.pkl")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "ml-model", "phishing_url_model_v2.pkl")
+model = joblib.load(MODEL_PATH)
 
 class URLRequest(BaseModel):
     url: str
 
-
-def extract_features(url):
-
-    parsed = urlparse(url)
-
-    features = {}
-
-    features["url_length"] = len(url)
-    features["num_dots"] = url.count(".")
-    features["num_hyphens"] = url.count("-")
-    features["num_digits"] = len(
-        re.findall(r"\d", url)
-    )
-
-    features["has_https"] = (
-        1 if parsed.scheme == "https" else 0
-    )
-
-    # Hostname Length
-    features["hostname_length"] = len(
-    parsed.netloc
-    )
-
-    # Path Length
-    features["path_length"] = len(
-    parsed.path
-    )
-
-    # Subdomain Count
-    features["subdomain_count"] = max(
-    0,
-    len(parsed.netloc.split(".")) - 2
-    )
-
-    # @ Symbol
-    features["at_symbol"] = 1 if "@" in url else 0
-
-    # Underscore Count
-    features["num_underscore"] = url.count("_")
-
-    # Percent Count
-    features["num_percent"] = url.count("%")
-
-    # Hash Count
-    features["num_hash"] = url.count("#")
-
-    suspicious_words = [
-        "login",
-        "verify",
-        "secure",
-        "bank",
-        "account",
-        "update",
-        "paypal",
-        "signin"
-    ]
-
-    for word in suspicious_words:
-        features[f"contains_{word}"] = (
-            1 if word in url.lower() else 0
-        )
-
-    return features
-
-
 @app.get("/")
-def home():
-    return {
-        "message": "Phishing Detector API Running"
-    }
-
+def root():
+    return {"status": "Phishing Detector API running"}
 
 @app.post("/predict")
-def predict(data: URLRequest):
-
-    features = extract_features(data.url)
-
-    df = pd.DataFrame([features])
-
-    prediction = model.predict(df)[0]
-
-    confidence = float(
-        max(model.predict_proba(df)[0])
-    )
-
+def predict(req: URLRequest):
+    url   = req.url.strip()
+    feats = extract_features(url)
+    X     = pd.DataFrame([feats])
+    pred  = int(model.predict(X)[0])
+    prob  = round(float(model.predict_proba(X)[0][1]), 4)
+    risk  = "high" if prob > 0.7 else "medium" if prob > 0.4 else "low"
     return {
-        "url": data.url,
-        "prediction":
-            "PHISHING"
-            if prediction == 1
-            else "SAFE",
-
-        "confidence":
-            round(confidence * 100, 2)
+        "url"       : url,
+        "prediction": pred,
+        "label"     : "phishing" if pred == 1 else "safe",
+        "confidence": prob,
+        "risk"      : risk,
     }

@@ -1,100 +1,150 @@
 import pandas as pd
+import re, math, collections
 from urllib.parse import urlparse
-import re
+import tldextract
 
+INPUT_FILE  = "../dataset/final_dataset_v2.csv"
+OUTPUT_FILE = "../dataset/features_dataset_v2.csv"
 
-def extract_features(url):
+KNOWN_BRANDS = [
+    "paypal","netflix","facebook","instagram","google","amazon",
+    "apple","microsoft","twitter","whatsapp","bank","secure",
+    "verify","account","login","update","signin","ebay","steam",
+    "discord","binance","coinbase","chase","wellsfargo","tiktok"
+]
 
-    parsed = urlparse(url)
+LEGIT_HOSTING = [
+    "github.io","vercel.app","netlify.app","blogspot.com",
+    "pages.dev","web.app","firebaseapp.com","glitch.me",
+    "replit.com","pythonanywhere.com","onrender.com","railway.app"
+]
 
-    features = {}
+TRUSTED_DOMAINS = [
+    "google.com","google.co.in","facebook.com","microsoft.com",
+    "apple.com","amazon.com","paypal.com","twitter.com",
+    "instagram.com","linkedin.com","github.com","gitlab.com",
+    "netflix.com","spotify.com","adobe.com","salesforce.com",
+    "atlassian.com","dropbox.com","slack.com","zoom.us",
+    "cloudflare.com","accounts.google.com","login.microsoftonline.com",
+    "secure.paypal.com","appleid.apple.com","signin.aws.amazon.com",
+]
 
-    # URL Length
-    features["url_length"] = len(url)
+def entropy(s):
+    if not s: return 0.0
+    c = collections.Counter(s)
+    t = len(s)
+    return -sum((v/t)*math.log2(v/t) for v in c.values())
 
-    # Number of Dots
-    features["num_dots"] = url.count(".")
+def extract_features(url: str) -> dict:
+    feats = {}
+    try:
+        parsed    = urlparse(url)
+        ext       = tldextract.extract(url)
+        hostname  = parsed.netloc.lower()
+        path      = parsed.path.lower()
+        subdomain = ext.subdomain.lower()
+        full_url  = url.lower()
+        registered = f"{ext.domain}.{ext.suffix}".lower()
 
-    # Number of Hyphens
-    features["num_hyphens"] = url.count("-")
+        # ── Purane features ────────────────────────────────────
+        feats["url_length"]        = len(url)
+        feats["num_dots"]          = url.count(".")
+        feats["num_hyphens"]       = url.count("-")
+        feats["num_digits"]        = sum(c.isdigit() for c in url)
+        feats["has_https"]         = int(parsed.scheme == "https")
+        feats["hostname_length"]   = len(hostname)
+        feats["path_length"]       = len(path)
+        feats["subdomain_count"]   = len(subdomain.split(".")) if subdomain else 0
+        feats["at_symbol"]         = int("@" in url)
+        feats["num_underscore"]    = url.count("_")
+        feats["num_percent"]       = url.count("%")
+        feats["num_hash"]          = url.count("#")
+        feats["contains_login"]    = int("login"   in full_url)
+        feats["contains_verify"]   = int("verify"  in full_url)
+        feats["contains_secure"]   = int("secure"  in full_url)
+        feats["contains_bank"]     = int("bank"    in full_url)
+        feats["contains_account"]  = int("account" in full_url)
+        feats["contains_update"]   = int("update"  in full_url)
+        feats["contains_paypal"]   = int("paypal"  in full_url)
+        feats["contains_signin"]   = int("signin"  in full_url)
 
-    # Number of Digits
-    features["num_digits"] = len(
-        re.findall(r"\d", url)
-    )
+        # ── Naye features ──────────────────────────────────────
+        on_legit_host = any(hostname.endswith(h) for h in LEGIT_HOSTING)
+        brand_in_url  = any(b in subdomain or b in path for b in KNOWN_BRANDS)
+        feats["brand_on_legit_host"] = int(on_legit_host and brand_in_url)
 
-    # HTTPS
-    features["has_https"] = (
-        1 if parsed.scheme == "https" else 0
-    )
+        feats["has_ip_host"] = int(bool(
+            re.match(r"^\d{1,3}(\.\d{1,3}){3}$", hostname.split(":")[0])
+        ))
 
-    # Hostname Length
-    features["hostname_length"] = len(
-        parsed.netloc
-    )
+        feats["path_entropy"] = round(entropy(path), 4)
 
-    # Path Length
-    features["path_length"] = len(
-        parsed.path
-    )
-
-    # Subdomain Count
-    features["subdomain_count"] = max(
-        0,
-        len(parsed.netloc.split(".")) - 2
-    )
-
-    # @ Symbol
-    features["at_symbol"] = 1 if "@" in url else 0
-
-    # Underscore
-    features["num_underscore"] = url.count("_")
-
-    # Percent Symbol
-    features["num_percent"] = url.count("%")
-
-    # Hash Symbol
-    features["num_hash"] = url.count("#")
-
-    # Suspicious Keywords
-    suspicious_words = [
-        "login",
-        "verify",
-        "secure",
-        "bank",
-        "account",
-        "update",
-        "paypal",
-        "signin"
-    ]
-
-    for word in suspicious_words:
-        features[f"contains_{word}"] = (
-            1 if word in url.lower() else 0
+        suspicious_tlds = {
+            "xyz","top","club","online","site","tk","ml",
+            "ga","cf","gq","pw","cc","su","buzz","icu"
+        }
+        feats["suspicious_tld"]    = int(ext.suffix in suspicious_tlds)
+        feats["subdomain_depth"]   = subdomain.count(".") + 1 if subdomain else 0
+        feats["digit_ratio_host"]  = (
+            sum(c.isdigit() for c in hostname) / len(hostname)
+            if hostname else 0
+        )
+        feats["double_slash_path"] = int("//" in path)
+        feats["num_special_chars"] = sum(
+            url.count(c) for c in ["?","=","&","%","@","!","~"]
         )
 
-    return features
+        feats["is_trusted_domain"] = int(
+            any(hostname.endswith(td) for td in TRUSTED_DOMAINS)
+        )
+
+        real_brand_domain = any(
+            b in registered for b in [
+                "google","facebook","paypal","apple","amazon",
+                "microsoft","netflix","instagram","twitter","github"
+            ]
+        )
+        feats["legit_brand_domain"] = int(real_brand_domain)
+
+    except Exception:
+        feats = {k: 0 for k in [
+            "url_length","num_dots","num_hyphens","num_digits","has_https",
+            "hostname_length","path_length","subdomain_count","at_symbol",
+            "num_underscore","num_percent","num_hash","contains_login",
+            "contains_verify","contains_secure","contains_bank",
+            "contains_account","contains_update","contains_paypal",
+            "contains_signin","brand_on_legit_host","has_ip_host",
+            "path_entropy","suspicious_tld","subdomain_depth",
+            "digit_ratio_host","double_slash_path","num_special_chars",
+            "is_trusted_domain","legit_brand_domain",
+        ]}
+
+    return feats   # ← try/except ke BAHAR
 
 
-df = pd.read_csv("dataset/final_dataset.csv")
+if __name__ == "__main__":
+    print(f"Loading: {INPUT_FILE}")
+    df = pd.read_csv(INPUT_FILE).dropna(subset=["url"])
+    print(f"  Total rows: {len(df)}")
+    print(f"  Extracting features... (5-10 min lagega)")
 
-rows = []
+    records = []
+    for i, row in df.iterrows():
+        f = extract_features(str(row["url"]))
+        if f is None:
+            continue
+        f["label"] = int(row["label"])
+        records.append(f)
+        if i % 10000 == 0:
+            print(f"  {i}/{len(df)} done...")
 
-for _, row in df.iterrows():
+    out = pd.DataFrame(records)
+    out.to_csv(OUTPUT_FILE, index=False)
 
-    features = extract_features(row["url"])
-
-    features["label"] = row["label"]
-
-    rows.append(features)
-
-feature_df = pd.DataFrame(rows)
-
-feature_df.to_csv(
-    "dataset/features_dataset.csv",
-    index=False
-)
-
-print(feature_df.head())
-
-print("\nTotal Records:", len(feature_df))
+    print(f"\n{'='*45}")
+    print(f"  SAVED → features_dataset_v2.csv")
+    print(f"  Rows     : {out.shape[0]}")
+    print(f"  Features : {out.shape[1]-1}")
+    print(f"  Label 0  : {(out['label']==0).sum()}")
+    print(f"  Label 1  : {(out['label']==1).sum()}")
+    print(f"{'='*45}")

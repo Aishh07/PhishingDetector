@@ -1,22 +1,257 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Phishing Detector</title>
+<meta charset="UTF-8">
+<title>Phishing Detector</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    width:360px;
+    padding:20px;
+    background:linear-gradient(135deg,#0f172a,#1e293b);
+    color:white;
+}
+
+.container{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:16px;
+    padding:18px;
+}
+
+.logo{
+    text-align:center;
+    font-size:52px;
+}
+
+h2{
+    text-align:center;
+    margin-top:8px;
+}
+
+.subtitle{
+    text-align:center;
+    font-size:12px;
+    color:#cbd5e1;
+    margin-top:5px;
+    margin-bottom:15px;
+}
+
+.url-box{
+    background:#111827;
+    border-radius:10px;
+    padding:10px;
+    font-size:12px;
+    word-break:break-all;
+    margin-bottom:15px;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    background:#2563eb;
+    color:white;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    background:#1d4ed8;
+}
+
+#result{
+    margin-top:15px;
+    background:#111827;
+    border-radius:10px;
+    padding:15px;
+    min-height:120px;
+}
+
+/* SCAN ANIMATION */
+
+.scan-wrapper{
+    text-align:center;
+}
+
+.shield-container{
+    position:relative;
+    width:80px;
+    height:80px;
+    margin:0 auto;
+}
+
+.shield{
+    font-size:55px;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    animation:pulse 1.5s infinite;
+}
+
+.radar-ring{
+    position:absolute;
+    width:80px;
+    height:80px;
+    border:2px solid #3b82f6;
+    border-radius:50%;
+    animation:ring 2s infinite;
+    opacity:0;
+}
+
+.radar-ring.delay{
+    animation-delay:1s;
+}
+
+.scan-line{
+    margin-top:20px;
+    width:100%;
+    height:4px;
+    background:#1e293b;
+    overflow:hidden;
+    border-radius:10px;
+}
+
+.scan-line::before{
+    content:"";
+    display:block;
+    width:35%;
+    height:100%;
+    background:linear-gradient(
+        90deg,
+        transparent,
+        #3b82f6,
+        transparent
+    );
+    animation:scanner 1.2s infinite;
+}
+
+.ai-engine{
+    margin-top:12px;
+    color:#60a5fa;
+    font-weight:600;
+}
+
+.status-text{
+    margin-top:8px;
+    color:#cbd5e1;
+    font-size:13px;
+}
+
+.safe{
+    color:#22c55e;
+}
+
+.phishing{
+    color:#ef4444;
+}
+
+.progress{
+    margin-top:12px;
+    width:100%;
+    height:10px;
+    background:#374151;
+    border-radius:10px;
+    overflow:hidden;
+}
+
+.progress-fill{
+    height:100%;
+    transition:width 1s ease;
+}
+
+.footer{
+    text-align:center;
+    margin-top:15px;
+    color:#94a3b8;
+    font-size:11px;
+}
+
+@keyframes pulse{
+
+    0%{
+        transform:translate(-50%,-50%) scale(1);
+    }
+
+    50%{
+        transform:translate(-50%,-50%) scale(1.15);
+    }
+
+    100%{
+        transform:translate(-50%,-50%) scale(1);
+    }
+}
+
+@keyframes ring{
+
+    0%{
+        transform:scale(0.6);
+        opacity:1;
+    }
+
+    100%{
+        transform:scale(1.6);
+        opacity:0;
+    }
+}
+
+@keyframes scanner{
+
+    0%{
+        transform:translateX(-150%);
+    }
+
+    100%{
+        transform:translateX(350%);
+    }
+}
+
+</style>
 </head>
+
 <body>
+
+<div class="container">
+
+    <div class="logo">🛡️</div>
 
     <h2>Phishing Detector</h2>
 
+    <div class="subtitle">
+        AI Powered URL Security Scanner
+    </div>
+
+    <div class="url-box">
+        <span id="url">Loading URL...</span>
+    </div>
+
     <button id="checkBtn">
-        Check Website
+        🔍 Scan Website
     </button>
 
-    <p id="url"></p>
+    <div id="result">
+        Click "Scan Website" to analyze.
+    </div>
 
-    <div id="result"></div>
+    <div class="footer">
+        XGBoost • FastAPI • Cybersecurity
+    </div>
 
-    <script src="popup.js"></script>
+</div>
+
+<script src="popup.js"></script>
 
 </body>
 </html>
